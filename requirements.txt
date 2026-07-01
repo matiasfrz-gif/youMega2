@@ -1,0 +1,6 @@
+google-genai
+edge-tts
+gTTS
+requests
+moviepy
+pysrt
