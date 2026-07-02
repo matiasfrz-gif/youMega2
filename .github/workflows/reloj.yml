@@ -1,0 +1,30 @@
+name: Fabrica de Shorts de Mati
+
+on:
+  workflow_dispatch: # 👈 Este activa el boton manual
+  schedule:
+    - cron: '0 */6 * * *' # ⏱️ Se despierta solo cada 6 horas
+
+jobs:
+  crear-short:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Clonar el codigo
+      uses: actions/checkout@v4
+
+    - name: Configurar Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Instalar librerias del bot
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Ejecutar la Fabrica de Videos
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      run: python fabrica.py
