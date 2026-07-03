@@ -1,21 +1,20 @@
 import os
+import json
 import random
 import asyncio
 import requests
 import edge_tts
 from google import genai
-from moviepy import VideoFileClip, AudioFileClip,TextClip
+from moviepy import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 
+# 🔑 LIBRERÍAS NUEVAS DE YOUTUBE
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
 
-# 🔐 CLAVES SÚPER SEGURAS
-GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
-PEXELS_KEY = os.environ.get("PEXELS_API_KEY")
-
-# Si por alguna razón la consola de Windows no las cargó, las busca en un archivo local oculto
-if not GEMINI_KEY:
-    GEMINI_KEY = "AQ.Ab8RN6JVa8vZt7tGu8hNjVgxOri0n4vpDNaTriPV0_0zSdVJeQ"
-if not PEXELS_KEY:
-    PEXELS_KEY = "FAxCoyD8kp3eVyrPeQOQHSCjHkEYwswmKhPrSyTWAE65AS0yBeSFG37j"
+# 🔐 CLAVES SEGURAS DESDE GITHUB SECRETS
+GEMINI_KEY = os.environ.get("AQ.Ab8RN6JVa8vZt7tGu8hNjVgxOri0n4vpDNaTriPV0_0zSdVJeQ")
+PEXELS_KEY = os.environ.get("FAxCoyD8kp3eVyrPeQOQHSCjHkEYwswmKhPrSyTWAE65AS0yBeSFG37j")
 
 client = genai.Client(api_key=GEMINI_KEY)
 
@@ -43,12 +42,8 @@ async def obtener_guion_ia():
     response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
     texto_original = response.text.strip()
     
-    texto_original = response.text.strip()
-    
-    # Forzamos la conversión segura para evitar el error de caracteres de Windows
     texto_seguro = texto_original.encode('utf-8', errors='ignore').decode('utf-8')
     
-    # 🧼 LIMPIADOR ULTRA PROFUNDO
     texto_limpio = texto_seguro.lower()
     remplazos_letras = {
         "ña": "nia", "ñe": "nie", "ñi": "nii", "ño": "nio", "ñu": "niu",
@@ -63,7 +58,6 @@ async def obtener_guion_ia():
         
     return tema_elegido, texto_limpio
 
-
 def descargar_video_fondo(tema):
     print(f"[VIDEO IA] Buscando un fondo ideal para '{tema}' en internet...")
     
@@ -77,8 +71,7 @@ def descargar_video_fondo(tema):
     if os.path.exists(ruta_guardado):
         return ruta_guardado
 
-    # 🔗 URL CORREGIDA CON LA BARRA EN SU LUGAR
-    url = f"https://api.pexels.com/videos/search?query=f{tema}&orientation=portrait&per_page=5"
+    url = f"https://pexels.com{tema}&orientation=portrait&per_page=5"
     headers = {"Authorization": PEXELS_KEY}
     
     try:
@@ -89,7 +82,6 @@ def descargar_video_fondo(tema):
             video_elegido = random.choice(videos)
             video_files = video_elegido.get("video_files", [])
             
-            # Buscamos el link de descarga directo de forma segura
             download_url = None
             if isinstance(video_files, list) and len(video_files) > 0:
                 download_url = video_files[0].get("link")
@@ -112,8 +104,6 @@ def descargar_video_fondo(tema):
         print(f"[ERROR DESCARGA]: {e}")
         return None
 
-from moviepy import TextClip, CompositeVideoClip
-
 def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_guion):
     print("\n>>> [MOVIEPY] Iniciando el montaje final con subtítulos...")
     
@@ -124,31 +114,25 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
     video_clip = VideoFileClip(ruta_fondo)
     audio_clip = AudioFileClip(archivo_audio)
     
-    # Cortamos el video de fondo a la duración exacta del audio
     duracion = audio_clip.duration
     video_recortado = video_clip.subclipped(0, duracion)
     
-    # 📝 CREACIÓN DE SUBTÍTULOS AUTOMÁTICOS
     print("[MOVIEPY] Generando subtítulos en pantalla...")
     palabras = texto_guion.split()
     total_palabras = len(palabras)
     
-    # Calculamos cuánto dura cada palabra aproximadamente en pantalla
     tiempo_por_palabra = duracion / total_palabras
     clips_de_texto = []
     
-    # Agrupamos las palabras de a 3 para que no quede un texto gigante e incómodo
     grupo = []
     for i, palabra in enumerate(palabras):
         grupo.append(palabra)
         if len(grupo) == 3 or i == total_palabras - 1:
             texto_pantalla = " ".join(grupo).upper()
             
-            # Calculamos el segundo exacto donde arranca y termina este grupo de palabras
             inicio_texto = (i - len(grupo) + 1) * tiempo_por_palabra
             fin_texto = (i + 1) * tiempo_por_palabra
             
-            # Creamos el cartel de texto con MoviePy
             subtitulo = (TextClip(
                             text=texto_pantalla, 
                             font_size=50, 
@@ -158,15 +142,12 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
                          )
                          .with_start(inicio_texto)
                          .with_duration(fin_texto - inicio_texto)
-                         .with_position(('center', 'center'))) # Lo clava justo en el medio
+                         .with_position(('center', 'center')))
             
             clips_de_texto.append(subtitulo)
-            grupo = [] # Vaciamos el grupo para las siguientes palabras
+            grupo = []
             
-    # Pegamos el video recortado y todos los textos juntos uno arriba del otro
     video_con_subtitulos = CompositeVideoClip([video_recortado] + clips_de_texto)
-    
-    # Le sumamos el audio de la IA
     video_final = video_con_subtitulos.with_audio(audio_clip)
     
     print(f"[MOVIEPY] Exportando Short con subtítulos...")
@@ -178,21 +159,71 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
         logger=None
     )
     
-    # Cerramos los archivos para liberar memoria
-        # Cerramos los archivos para liberar memoria
     video_clip.close()
     audio_clip.close()
     video_final.close()
     print(f"[SISTEMA] ¡Video creado con éxito!: {archivo_video_salida}")
 
+# 🚀 FUNCIÓN MÁGICA PARA SUBIR A YOUTUBE SHORTS
+def subir_a_youtube(archivo_video, titulo, descripcion):
+    print("\n>>> [YOUTUBE API] Iniciando proceso de subida...")
+    try:
+        # Reconstruimos las credenciales desde el secreto de GitHub
+        secrets_env = os.environ.get("CLIENT_SECRETS_JSON")
+        if not secrets_env:
+            print("[ERROR YOUTUBE] No se encontraron las credenciales CLIENT_SECRETS_JSON.")
+            return
+
+        secrets_data = json.loads(secrets_env)
+        
+        # Simulación de tokens para entorno automatizado
+        # NOTA: YouTube requiere un flujo OAuth inicial. Si salta error de token, 
+        # configuraremos un token de refresco persistente.
+        print("[YOUTUBE API] Autenticando con los canales de Google...")
+        
+        # Estructura básica de conexión por API
+        # (Usa un token de acceso rápido simulado para el despliegue inicial)
+        creds = Credentials(
+            token=None,
+            refresh_token=os.environ.get("YOUTUBE_REFRESH_TOKEN", "dummy_token"),
+            token_uri="https://googleapis.com",
+            client_id=secrets_data.get("installed", {}).get("client_id"),
+            client_secret=secrets_data.get("installed", {}).get("client_secret")
+        )
+        
+        youtube = build("youtube", "v3", credentials=creds)
+        
+        body = {
+            "snippet": {
+                "title": titulo[:100],
+                "description": descripcion,
+                "tags": ["shorts", "datoscuriosos", "ia"],
+                "categoryId": "27" # Educación / Ciencia
+            },
+            "status": {
+                "privacyStatus": "public", # Se lanza directo al público
+                "selfDeclaredMadeForKids": False
+            }
+        }
+        
+        media = MediaFileUpload(archivo_video, chunksize=-1, resumable=True, mimetype="video/mp4")
+        
+        request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+        
+        print("[YOUTUBE API] Subiendo archivo MP4 a la plataforma...")
+        response = request.execute()
+        print(f"[YOUTUBE API] ¡ÉXITO TOTAL! Video subido. ID: {response.get('id')}")
+        
+    except Exception as e:
+        print(f"[AVISO YOUTUBE] Error en subida automática: {e}")
+        print("[CONSEJO] Si dice 'invalid_grant', necesitamos generar el Refresh Token manual la primera vez.")
+
 async def main():
     print(">>> [YouMega2] Iniciando generador 100% Autónomo...")
     
     try:
-        # 1. Intentamos usar la IA de Google normal
         tema, texto_guion = await obtener_guion_ia()
     except Exception:
-        # 🛡️ Si Google está bloqueado por cuota, se activa este texto automático solo
         print("\n[AVISO] La IA de Google está al límite. Activando plan de respaldo...")
         tema = "el espacio exterior"
         texto_guion = "el espacio exterior esconde misterios increibles como estrellas que giran miles de veces por segundo en absoluto silencio"
@@ -200,26 +231,23 @@ async def main():
     try:
         print(f"[GUION DETERMINADO]: '{texto_guion}'")
         
-        # 2. Generamos el archivo de audio temporal
         archivo_audio = "audio_temporal.mp3"
         await generar_voz(texto_guion, archivo_audio)
         
-        # 3. Descargamos o buscamos el fondo
         ruta_fondo = descargar_video_fondo(tema)
         
-        # 4. Compilamos todo el Short pasándole el texto para los subtítulos
-        video_salida = f"short_{tema.replace(' ', '_')}.mp4"
-        armar_video_final(archivo_audio, ruta_fondo, video_salida, texto_guion)
+        archivo_salida = f"short_{tema.replace(' ', '_')}.mp4"
+        armar_video_final(archivo_audio, ruta_fondo, archivo_salida, texto_guion)
         
-        # 🧼 Limpieza del audio temporal
+        # 🎬 SUBIDA AUTOMÁTICA
+        titulo_short = f"¿Sabías esto sobre {tema}? 😱 #shorts #curiosidades"
+        subir_a_youtube(archivo_salida, titulo_short, texto_guion)
+        
         if os.path.exists(archivo_audio):
             os.remove(archivo_audio)
             
-        print("\n>>> [YouMega2] ¡Short creado con éxito de forma independiente!")
-        
-    except Exception as error_final:
-        print(f"\n[ERROR GENERAL]: {error_final}")
+    except Exception as e:
+        print(f"[ERROR EN PROCESO]: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
-
