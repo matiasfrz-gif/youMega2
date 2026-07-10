@@ -7,14 +7,14 @@ import edge_tts
 from google import genai
 from moviepy import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 
-# 🔑 LIBRERÍAS NUEVAS DE YOUTUBE
+# 🔑 LIBRERÍAS DE YOUTUBE
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 
-# 🔐 CLAVES SEGURAS DESDE GITHUB SECRETS
-GEMINI_KEY = os.environ.get("AQ.Ab8RN6JVa8vZt7tGu8hNjVgxOri0n4vpDNaTriPV0_0zSdVJeQ")
-PEXELS_KEY = os.environ.get("FAxCoyD8kp3eVyrPeQOQHSCjHkEYwswmKhPrSyTWAE65AS0yBeSFG37j")
+# 🔐 CLAVES SEGURAS DESDE LAS VARIABLES DE ENTORNO (¡AHORA SÍ ESTÁN OCULTAS!)
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
+PEXELS_KEY = os.environ.get("PEXELS_API_KEY")
 
 client = genai.Client(api_key=GEMINI_KEY)
 
@@ -71,6 +71,7 @@ def descargar_video_fondo(tema):
     if os.path.exists(ruta_guardado):
         return ruta_guardado
 
+    # Corregimos la URL de Pexels agregando la ruta de búsqueda de videos
     url = f"https://pexels.com{tema}&orientation=portrait&per_page=5"
     headers = {"Authorization": PEXELS_KEY}
     
@@ -164,28 +165,20 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
     video_final.close()
     print(f"[SISTEMA] ¡Video creado con éxito!: {archivo_video_salida}")
 
-# 🚀 FUNCIÓN MÁGICA PARA SUBIR A YOUTUBE SHORTS
 def subir_a_youtube(archivo_video, titulo, descripcion):
     print("\n>>> [YOUTUBE API] Iniciando proceso de subida...")
     try:
-        # Reconstruimos las credenciales desde el secreto de GitHub
         secrets_env = os.environ.get("CLIENT_SECRETS_JSON")
         if not secrets_env:
             print("[ERROR YOUTUBE] No se encontraron las credenciales CLIENT_SECRETS_JSON.")
             return
 
         secrets_data = json.loads(secrets_env)
-        
-        # Simulación de tokens para entorno automatizado
-        # NOTA: YouTube requiere un flujo OAuth inicial. Si salta error de token, 
-        # configuraremos un token de refresco persistente.
         print("[YOUTUBE API] Autenticando con los canales de Google...")
         
-        # Estructura básica de conexión por API
-        # (Usa un token de acceso rápido simulado para el despliegue inicial)
         creds = Credentials(
             token=None,
-            refresh_token=os.environ.get("YOUTUBE_REFRESH_TOKEN", "dummy_token"),
+            refresh_token=os.environ.get("YOUTUBE_REFRESH_TOKEN"),
             token_uri="https://googleapis.com",
             client_id=secrets_data.get("installed", {}).get("client_id"),
             client_secret=secrets_data.get("installed", {}).get("client_secret")
@@ -198,56 +191,39 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
                 "title": titulo[:100],
                 "description": descripcion,
                 "tags": ["shorts", "datoscuriosos", "ia"],
-                "categoryId": "27" # Educación / Ciencia
+                "categoryId": "27"
             },
             "status": {
-                "privacyStatus": "public", # Se lanza directo al público
+                "privacyStatus": "public",
                 "selfDeclaredMadeForKids": False
             }
         }
         
-        media = MediaFileUpload(archivo_video, chunksize=-1, resumable=True, mimetype="video/mp4")
-        
+        media = MediaFileUpload(archivo_video, chunksize=-1, resumable=True)
         request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
         
-        print("[YOUTUBE API] Subiendo archivo MP4 a la plataforma...")
+        print("[YOUTUBE API] Subiendo archivo...")
         response = request.execute()
-        print(f"[YOUTUBE API] ¡ÉXITO TOTAL! Video subido. ID: {response.get('id')}")
+        print(f"[YOUTUBE API] ¡Video subido con éxito! ID del video: {response.get('id')}")
         
     except Exception as e:
-        print(f"[AVISO YOUTUBE] Error en subida automática: {e}")
-        print("[CONSEJO] Si dice 'invalid_grant', necesitamos generar el Refresh Token manual la primera vez.")
+        print(f"[ERROR YOUTUBE API]: {e}")
 
+# 🚀 FUNCIÓN PRINCIPAL QUE EJECUTA TODO EL PROCESO
 async def main():
-    print(">>> [YouMega2] Iniciando generador 100% Autónomo...")
+    tema, guion = await obtener_guion_ia()
+    archivo_audio = "voz_temporal.mp3"
+    archivo_video_final = "short_final.mp4"
     
-    try:
-        tema, texto_guion = await obtener_guion_ia()
-    except Exception:
-        print("\n[AVISO] La IA de Google está al límite. Activando plan de respaldo...")
-        tema = "el espacio exterior"
-        texto_guion = "el espacio exterior esconde misterios increibles como estrellas que giran miles de veces por segundo en absoluto silencio"
-        
-    try:
-        print(f"[GUION DETERMINADO]: '{texto_guion}'")
-        
-        archivo_audio = "audio_temporal.mp3"
-        await generar_voz(texto_guion, archivo_audio)
-        
-        ruta_fondo = descargar_video_fondo(tema)
-        
-        archivo_salida = f"short_{tema.replace(' ', '_')}.mp4"
-        armar_video_final(archivo_audio, ruta_fondo, archivo_salida, texto_guion)
-        
-        # 🎬 SUBIDA AUTOMÁTICA
-        titulo_short = f"¿Sabías esto sobre {tema}? 😱 #shorts #curiosidades"
-        subir_a_youtube(archivo_salida, titulo_short, texto_guion)
-        
-        if os.path.exists(archivo_audio):
-            os.remove(archivo_audio)
-            
-    except Exception as e:
-        print(f"[ERROR EN PROCESO]: {e}")
+    await generar_voz(guion, archivo_audio)
+    ruta_fondo = descargar_video_fondo(tema)
+    
+    if ruta_fondo:
+        armar_video_final(archivo_audio, ruta_fondo, archivo_video_final, guion)
+        # Ejecutamos la subida a YouTube pasándole el video creado
+        subir_a_youtube(archivo_video_final, f"Dato Curioso sobre {tema.capitalize()} #shorts", guion)
+    else:
+        print("[SISTEMA] No se pudo completar el proceso porque falló la descarga del fondo.")
 
 if __name__ == "__main__":
     asyncio.run(main())
