@@ -5,7 +5,7 @@ import asyncio
 import requests
 import edge_tts
 from google import genai
-from moviepy import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
+from moviepy import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
 
 # 🔑 LIBRERÍAS DE YOUTUBE
 from googleapiclient.discovery import build
@@ -71,7 +71,6 @@ def descargar_video_fondo(tema):
     if os.path.exists(ruta_guardado):
         return ruta_guardado
 
-    # URL corregida de Pexels con la ruta correcta de búsqueda de videos
     url = f"https://api.pexels.com/videos/search?query={tema}&orientation=portrait&per_page=5"
     headers = {"Authorization": PEXELS_KEY}
 
@@ -116,7 +115,15 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
     audio_clip = AudioFileClip(archivo_audio)
 
     duracion = audio_clip.duration
-    video_recortado = video_clip.subclipped(0, duracion)
+
+    # Si el video de fondo es más corto que el audio, lo repetimos hasta que alcance
+    if video_clip.duration < duracion:
+        print(f"[MOVIEPY] Video corto ({video_clip.duration:.1f}s), extendiendo para cubrir {duracion:.1f}s...")
+        repeticiones = int(duracion / video_clip.duration) + 1
+        video_extendido = concatenate_videoclips([video_clip] * repeticiones)
+        video_recortado = video_extendido.subclipped(0, duracion)
+    else:
+        video_recortado = video_clip.subclipped(0, duracion)
 
     print("[MOVIEPY] Generando subtítulos en pantalla...")
     palabras = texto_guion.split()
