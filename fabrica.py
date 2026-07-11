@@ -180,7 +180,7 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
             print("[ERROR YOUTUBE] No se encontraron las credenciales CLIENT_SECRETS_JSON.")
             return
 
-        secrets_data = json.loads(secrets_env)
+        secrets_data = json.loads(secrets_env, strict=False)
         print("[YOUTUBE API] Autenticando con los canales de Google...")
 
         creds = Credentials(
