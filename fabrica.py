@@ -183,12 +183,14 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
         secrets_data = json.loads(secrets_env, strict=False)
         print("[YOUTUBE API] Autenticando con los canales de Google...")
 
+        datos_credenciales = secrets_data.get("installed") or secrets_data.get("web") or {}
+
         creds = Credentials(
-            token=None,
+        token=None,
             refresh_token=os.environ.get("YOUTUBE_REFRESH_TOKEN"),
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=secrets_data.get("installed", {}).get("client_id"),
-            client_secret=secrets_data.get("installed", {}).get("client_secret")
+            client_id=datos_credenciales.get("client_id"),
+            client_secret=datos_credenciales.get("client_secret")
         )
 
         youtube = build("youtube", "v3", credentials=creds)
