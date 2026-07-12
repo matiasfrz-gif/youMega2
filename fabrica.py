@@ -143,7 +143,7 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
 
             subtitulo = (TextClip(
                 text=texto_pantalla,
-                font_size=20,
+                font_size=10,
                 color='yellow',
                 stroke_color='black',
                 stroke_width=2,
