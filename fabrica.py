@@ -147,8 +147,9 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
                 color='yellow',
                 stroke_color='black',
                 stroke_width=2,
-                size=(900, None),
-                method='caption'
+                size=(900, 150),           
+                method='caption',
+                text_align='center'
              )
              .with_start(inicio_texto)
              .with_duration(fin_texto - inicio_texto)
