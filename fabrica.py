@@ -142,15 +142,17 @@ def armar_video_final(archivo_audio, ruta_fondo, archivo_video_salida, texto_gui
             fin_texto = (i + 1) * tiempo_por_palabra
 
             subtitulo = (TextClip(
-                            text=texto_pantalla,
-                            font_size=50,
-                            color='yellow',
-                            stroke_color='black',
-                            stroke_width=3
-                         )
-                         .with_start(inicio_texto)
-                         .with_duration(fin_texto - inicio_texto)
-                         .with_position(('center', 'center')))
+                text=texto_pantalla,
+                font_size=25,
+                color='yellow',
+                stroke_color='black',
+                stroke_width=2,
+                size=(900, None),
+                method='caption'
+             )
+             .with_start(inicio_texto)
+             .with_duration(fin_texto - inicio_texto)
+             .with_position(('center', 'center')))
 
             clips_de_texto.append(subtitulo)
             grupo = []
