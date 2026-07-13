@@ -1,9 +1,8 @@
 google-genai
 edge-tts
-gTTS
-requests
 moviepy
-pysrt
+requests
+gTTS
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
