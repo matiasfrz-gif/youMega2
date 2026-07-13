@@ -109,6 +109,11 @@ def descargar_video_escena(prompt_video, num_escena):
     return None
 
 def armar_bloque_escena(archivo_audio, ruta_fondo, texto_narracion, num_escena):
+    # Resolución estándar fija para TODAS las escenas — evita que el video final
+    # se corrompa/tenga interferencia al unir clips de resoluciones distintas
+    ANCHO_ESTANDAR = 1280
+    ALTO_ESTANDAR = 720
+
     video_clip = VideoFileClip(ruta_fondo)
     audio_clip = AudioFileClip(archivo_audio)
     duracion = audio_clip.duration
@@ -120,12 +125,22 @@ def armar_bloque_escena(archivo_audio, ruta_fondo, texto_narracion, num_escena):
     else:
         video_recortado = video_clip.subclipped(0, duracion)
 
-    # Calculamos el tamaño del texto en base a la resolución real del video,
-    # así nunca queda desproporcionado si el video viene en baja resolución
-    ancho_video, alto_video = video_recortado.size
-    tamano_fuente = max(int(alto_video * 0.045), 16)   # ~4.5% del alto del video, mínimo 16px
-    ancho_caja_texto = int(ancho_video * 0.85)          # 85% del ancho del video, deja margen
-    alto_caja_texto = int(alto_video * 0.20)            # 20% del alto del video
+    # 🔧 Forzamos que TODOS los videos queden con la misma resolución exacta,
+    # sin importar en qué tamaño los haya bajado Pexels
+    video_recortado = video_recortado.resized(height=ALTO_ESTANDAR)
+    if video_recortado.w < ANCHO_ESTANDAR:
+        video_recortado = video_recortado.resized(width=ANCHO_ESTANDAR)
+    video_recortado = video_recortado.cropped(
+        x_center=video_recortado.w / 2,
+        y_center=video_recortado.h / 2,
+        width=ANCHO_ESTANDAR,
+        height=ALTO_ESTANDAR
+    )
+
+    # Calculamos el tamaño del texto en base a la resolución estándar (ya fija para todas)
+    tamano_fuente = max(int(ALTO_ESTANDAR * 0.045), 16)
+    ancho_caja_texto = int(ANCHO_ESTANDAR * 0.85)
+    alto_caja_texto = int(ALTO_ESTANDAR * 0.20)
 
     subtitulo = (TextClip(
         text=texto_narracion.upper(),
@@ -212,7 +227,7 @@ async def main():
 
     if bloques_renderizados:
         print("\n>>> [MOVIEPY] Concatenando todos los bloques en la película final...")
-        pelicula_completa = concatenate_videoclips(bloques_renderizados)
+        pelicula_completa = concatenate_videoclips(bloques_renderizados, method="compose")
         pelicula_completa.write_videofile(archivo_pelicula_final, codec="libx264", audio_codec="aac", fps=24, logger=None)
 
         pelicula_completa.close()
