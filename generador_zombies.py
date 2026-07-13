@@ -83,7 +83,19 @@ def descargar_video_escena(prompt_video, num_escena):
 
             download_url = None
             if isinstance(video_files, list) and len(video_files) > 0:
-                download_url = video_files[0].get("link")
+                # Buscamos específicamente una versión HD (evita videos borrosos/de baja calidad)
+                candidatos_hd = [
+                    v for v in video_files
+                    if v.get("quality") == "hd" and v.get("width", 0) >= 1280
+                ]
+                if candidatos_hd:
+                    # Entre las opciones HD, elegimos la de mayor resolución disponible
+                    mejor = max(candidatos_hd, key=lambda v: v.get("width", 0))
+                    download_url = mejor.get("link")
+                else:
+                    # Si no hay HD, usamos la de mayor resolución que haya, sea la que sea
+                    mejor = max(video_files, key=lambda v: v.get("width", 0))
+                    download_url = mejor.get("link")
             elif isinstance(video_files, dict):
                 download_url = video_files.get("link")
 
@@ -108,13 +120,20 @@ def armar_bloque_escena(archivo_audio, ruta_fondo, texto_narracion, num_escena):
     else:
         video_recortado = video_clip.subclipped(0, duracion)
 
+    # Calculamos el tamaño del texto en base a la resolución real del video,
+    # así nunca queda desproporcionado si el video viene en baja resolución
+    ancho_video, alto_video = video_recortado.size
+    tamano_fuente = max(int(alto_video * 0.045), 16)   # ~4.5% del alto del video, mínimo 16px
+    ancho_caja_texto = int(ancho_video * 0.85)          # 85% del ancho del video, deja margen
+    alto_caja_texto = int(alto_video * 0.20)            # 20% del alto del video
+
     subtitulo = (TextClip(
         text=texto_narracion.upper(),
-        font_size=28,
+        font_size=tamano_fuente,
         color='white',
         stroke_color='black',
-        stroke_width=3,
-        size=(1100, 150),
+        stroke_width=2,
+        size=(ancho_caja_texto, alto_caja_texto),
         method='caption',
         text_align='center'
      )
