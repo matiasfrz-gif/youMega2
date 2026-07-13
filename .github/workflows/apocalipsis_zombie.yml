@@ -30,7 +30,7 @@ jobs:
         env:
           # Aca GitHub le presta tus secretos actuales al codigo de Python
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PEXELS_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           CLIENT_SECRETS_JSON: ${{ secrets.CLIENT_SECRETS_JSON }}
         run: python generador_zombies.py
