@@ -66,7 +66,12 @@ def descargar_video_escena(prompt_video, num_escena):
     os.makedirs("clips_temporales", exist_ok=True)
     ruta_guardado = os.path.join("clips_temporales", f"video_{num_escena}.mp4")
 
-    url = f"https://pexels.com{prompt_video}&orientation=landscape&per_page=3"
+    # 🔥 LIMPIEZA DE PROMPT: Nos quedamos con un máximo de 3 palabras clave limpias
+    prompt_limpio = prompt_video.replace(",", " ").replace(".", " ")
+    palabras_clave = " ".join(prompt_limpio.split()[:3])
+
+    # Enlace oficial corregido con la API de búsqueda de videos
+    url = f"https://pexels.com{palabras_clave}&orientation=landscape&per_page=3"
     headers = {"Authorization": PEXELS_API_KEY}
 
     try:
