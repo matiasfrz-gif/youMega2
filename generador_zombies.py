@@ -21,7 +21,7 @@ client = genai.Client(api_key=GEMINI_KEY)
 
 async def generar_voz_escena(texto, archivo_salida):
     try:
-        VOICE = "es-MX-JorgeNeural" 
+        VOICE = "es-MX-JorgeNeural"
         communicate = edge_tts.Communicate(texto, VOICE)
         await communicate.save(archivo_salida)
     except Exception as e:
@@ -70,8 +70,8 @@ def descargar_video_escena(prompt_video, num_escena):
     prompt_limpio = prompt_video.replace(",", " ").replace(".", " ")
     palabras_clave = " ".join(prompt_limpio.split()[:3])
 
-    # Enlace oficial corregido con la API de búsqueda de videos
-    url = f"https://pexels.com{palabras_clave}&orientation=landscape&per_page=3"
+    # ✅ URL CORRECTA de la API de búsqueda de videos de Pexels
+    url = f"https://api.pexels.com/videos/search?query={palabras_clave}&orientation=landscape&per_page=3"
     headers = {"Authorization": PEXELS_API_KEY}
 
     try:
@@ -80,7 +80,7 @@ def descargar_video_escena(prompt_video, num_escena):
         if videos:
             video_elegido = random.choice(videos)
             video_files = video_elegido.get("video_files", [])
-            
+
             download_url = None
             if isinstance(video_files, list) and len(video_files) > 0:
                 download_url = video_files[0].get("link")
@@ -125,7 +125,7 @@ def armar_bloque_escena(archivo_audio, ruta_fondo, texto_narracion, num_escena):
     escena_montada = CompositeVideoClip([video_recortado, subtitulo]).with_audio(audio_clip)
     ruta_salida_bloque = os.path.join("clips_temporales", f"bloque_listo_{num_escena}.mp4")
     escena_montada.write_videofile(ruta_salida_bloque, codec="libx264", audio_codec="aac", fps=24, logger=None)
-    
+
     video_clip.close()
     audio_clip.close()
     escena_montada.close()
@@ -135,7 +135,8 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
     print("\n>>> [YOUTUBE API] Iniciando proceso de subida...")
     try:
         secrets_env = os.environ.get("CLIENT_SECRETS_JSON")
-        if not secrets_env: return
+        if not secrets_env:
+            return
 
         secrets_data = json.loads(secrets_env, strict=False)
         datos_credenciales = secrets_data.get("installed") or secrets_data.get("web") or {}
@@ -143,7 +144,7 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
         creds = Credentials(
             token=None,
             refresh_token=os.environ.get("YOUTUBE_REFRESH_TOKEN"),
-            token_uri="https://googleapis.com",
+            token_uri="https://oauth2.googleapis.com/token",  # ✅ CORREGIDO
             client_id=datos_credenciales.get("client_id"),
             client_secret=datos_credenciales.get("client_secret")
         )
@@ -165,7 +166,7 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
 
         media = MediaFileUpload(archivo_video, chunksize=-1, resumable=True)
         request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-        
+
         print(f"[YOUTUBE API] Subiendo archivo largo...")
         response = request.execute()
         print(f"[SISTEMA] ¡Película subida con éxito! ID: {response.get('id')}")
@@ -185,7 +186,7 @@ async def main():
         audio_temp = os.path.join("clips_temporales", f"voz_{num}.mp3")
         await generar_voz_escena(escena["narracion"], audio_temp)
         video_temp = descargar_video_escena(escena["video_prompt"], num)
-        
+
         if video_temp and os.path.exists(audio_temp):
             ruta_bloque = armar_bloque_escena(audio_temp, video_temp, escena["narracion"], num)
             bloques_renderizados.append(VideoFileClip(ruta_bloque))
@@ -194,9 +195,10 @@ async def main():
         print("\n>>> [MOVIEPY] Concatenando todos los bloques en la película final...")
         pelicula_completa = concatenate_videoclips(bloques_renderizados)
         pelicula_completa.write_videofile(archivo_pelicula_final, codec="libx264", audio_codec="aac", fps=24, logger=None)
-        
+
         pelicula_completa.close()
-        for b in bloques_renderizados: b.close()
+        for b in bloques_renderizados:
+            b.close()
 
         titulo = f"APOCALIPSIS: {tema.upper()} 🧟‍♂️ (Historia de Terror IA)"
         descripcion = f"Una experiencia cinematografica inmersiva sobre supervivencia zombie.\n\nGenerado automaticamente."
