@@ -3,6 +3,7 @@ import json
 import random
 import asyncio
 import requests
+import edge_tts
 import google.genai as genai
 from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
 from moviepy.video.VideoClip import TextClip
@@ -20,9 +21,15 @@ PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 # Inicializamos Gemini con tu llave actual
 client = genai.Client(api_key=GEMINI_KEY)
 
+# Resolución estándar fija para TODAS las escenas — evita que el video final
+# se corrompa/tenga interferencia al unir clips de resoluciones distintas
+ANCHO_ESTANDAR = 1280
+ALTO_ESTANDAR = 720
+
+
 async def generar_voz_escena(texto, archivo_salida):
     try:
-        VOICE = "es-MX-JorgeNeural" 
+        VOICE = "es-MX-JorgeNeural"
         communicate = edge_tts.Communicate(texto, VOICE)
         await communicate.save(archivo_salida)
     except Exception as e:
@@ -31,15 +38,16 @@ async def generar_voz_escena(texto, archivo_salida):
         tts = gTTS(text=texto, lang='es', tld='com.mx')
         tts.save(archivo_salida)
 
+
 async def obtener_guion_zombis_ia():
     # El archivo de memoria para que el bot nunca olvide el capítulo anterior
     archivo_memoria = "historial_serie_rene.json"
-    resumen_anterior = "Rene Enriquez acaba de despertar desorientado en medio del brote zombie."
+    resumen_anterior = "Rene Enriquez acaba de despertar desorientado en medio del brote zombie en Buenos Aires."
 
     # Si el archivo existe en el repositorio, lee cómo terminó el capítulo de ayer
     if os.path.exists(archivo_memoria):
         try:
-            with open(archivo_memoria, "r") as f:
+            with open(archivo_memoria, "r", encoding="utf-8") as f:
                 datos_memoria = json.load(f)
                 resumen_anterior = datos_memoria.get("ultimo_resumen", resumen_anterior)
             print(f"[MEMORIA] ¡Contexto recuperado! Capitulo anterior: '{resumen_anterior}'")
@@ -50,7 +58,8 @@ async def obtener_guion_zombis_ia():
 
     prompt = (
         f"Eres el escritor principal de una serie cinematografica de terror y supervivencia zombie. "
-        f"El protagonista absoluto es un hombre llamado Rene Enriquez. "
+        f"El protagonista absoluto es un hombre llamado Rene Enriquez, y la historia transcurre en Buenos Aires, Argentina. "
+        f"Mantene el nombre del protagonista (Rene Enriquez) y el lugar (Buenos Aires) consistentes durante todo el capitulo. "
         f"En el capitulo anterior ocurrio exactamente esto: '{resumen_anterior}'. "
         f"Escribe el CAPITULO SIGUIENTE de la serie continuando la narrativa de forma fluida, tensa y atrapante. "
         f"Divide este nuevo capitulo en exactamente 10 escenas consecutivas. "
@@ -69,17 +78,18 @@ async def obtener_guion_zombis_ia():
 
     response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
     texto_json = response.text.strip().replace("```json", "").replace("```", "")
-    
+
     datos_guion = json.loads(texto_json)
-    
+
     # Guardamos de forma automática el nuevo resumen para la próxima corrida
     try:
-        with open(archivo_memoria, "w") as f:
-            json.dump({"ultimo_resumen": datos_guion["nuevo_resumen"]}, f, indent=4)
+        with open(archivo_memoria, "w", encoding="utf-8") as f:
+            json.dump({"ultimo_resumen": datos_guion["nuevo_resumen"]}, f, ensure_ascii=False, indent=4)
     except Exception as e:
         print(f"[ERROR MEMORIA]: {e}")
 
     return datos_guion["escenas"]
+
 
 def descargar_video_escena(prompt_video, num_escena, texto_narracion):
     if not PEXELS_API_KEY:
@@ -91,7 +101,7 @@ def descargar_video_escena(prompt_video, num_escena, texto_narracion):
 
     # 🚨 EL DOMADOR DE PEXELS DE LA SERIE: Filtramos palabras de acción real
     texto_min = texto_narracion.lower()
-    
+
     if "corriendo" in texto_min or "corre" in texto_min or "escapa" in texto_min or "huye" in texto_min:
         palabras_clave = "person running away camera"
     elif "oscur" in texto_min or "noche" in texto_min or "sombra" in texto_min:
@@ -107,7 +117,8 @@ def descargar_video_escena(prompt_video, num_escena, texto_narracion):
 
     print(f"[BOT] Escena {num_escena} -> Buscando en Pexels con filtro: '{palabras_clave}'")
 
-    url = f"https://pexels.com{palabras_clave}&orientation=landscape&per_page=3"
+    # ✅ URL CORRECTA de la API de búsqueda de videos de Pexels
+    url = f"https://api.pexels.com/videos/search?query={palabras_clave}&orientation=landscape&per_page=3"
     headers = {"Authorization": PEXELS_API_KEY}
 
     try:
@@ -116,10 +127,20 @@ def descargar_video_escena(prompt_video, num_escena, texto_narracion):
         if videos:
             video_elegido = random.choice(videos)
             video_files = video_elegido.get("video_files", [])
-            
+
             download_url = None
             if isinstance(video_files, list) and len(video_files) > 0:
-                download_url = video_files.get("link")
+                # Buscamos específicamente una versión HD (evita videos borrosos/de baja calidad)
+                candidatos_hd = [
+                    v for v in video_files
+                    if v.get("quality") == "hd" and v.get("width", 0) >= 1280
+                ]
+                if candidatos_hd:
+                    mejor = max(candidatos_hd, key=lambda v: v.get("width", 0))
+                    download_url = mejor.get("link")
+                else:
+                    mejor = max(video_files, key=lambda v: v.get("width", 0))
+                    download_url = mejor.get("link")
             elif isinstance(video_files, dict):
                 download_url = video_files.get("link")
 
@@ -131,6 +152,7 @@ def descargar_video_escena(prompt_video, num_escena, texto_narracion):
     except Exception as e:
         print(f"[ERROR DESCARGA ESCENA {num_escena}]: {e}")
     return None
+
 
 def armar_bloque_escena(archivo_audio, ruta_fondo, texto_narracion, num_escena):
     video_clip = VideoFileClip(ruta_fondo)
@@ -144,13 +166,30 @@ def armar_bloque_escena(archivo_audio, ruta_fondo, texto_narracion, num_escena):
     else:
         video_recortado = video_clip.subclipped(0, duracion)
 
+    # 🔧 Forzamos que TODOS los videos queden con la misma resolución exacta,
+    # sin importar en qué tamaño los haya bajado Pexels (evita el efecto mosaico/rayas)
+    video_recortado = video_recortado.resized(height=ALTO_ESTANDAR)
+    if video_recortado.w < ANCHO_ESTANDAR:
+        video_recortado = video_recortado.resized(width=ANCHO_ESTANDAR)
+    video_recortado = video_recortado.cropped(
+        x_center=video_recortado.w / 2,
+        y_center=video_recortado.h / 2,
+        width=ANCHO_ESTANDAR,
+        height=ALTO_ESTANDAR
+    )
+
+    # Tamaño de texto proporcional a la resolución estándar (consistente en todas las escenas)
+    tamano_fuente = max(int(ALTO_ESTANDAR * 0.045), 16)
+    ancho_caja_texto = int(ANCHO_ESTANDAR * 0.85)
+    alto_caja_texto = int(ALTO_ESTANDAR * 0.20)
+
     subtitulo = (TextClip(
         text=texto_narracion.upper(),
-        font_size=28,
+        font_size=tamano_fuente,
         color='white',
         stroke_color='black',
-        stroke_width=3,
-        size=(1100, 150),
+        stroke_width=2,
+        size=(ancho_caja_texto, alto_caja_texto),
         method='caption',
         text_align='center'
      )
@@ -161,17 +200,19 @@ def armar_bloque_escena(archivo_audio, ruta_fondo, texto_narracion, num_escena):
     escena_montada = CompositeVideoClip([video_recortado, subtitulo]).with_audio(audio_clip)
     ruta_salida_bloque = os.path.join("clips_temporales", f"bloque_listo_{num_escena}.mp4")
     escena_montada.write_videofile(ruta_salida_bloque, codec="libx264", audio_codec="aac", fps=24, logger=None)
-    
+
     video_clip.close()
     audio_clip.close()
     escena_montada.close()
     return ruta_salida_bloque
 
+
 def subir_a_youtube(archivo_video, titulo, descripcion):
     print("\n>>> [YOUTUBE API] Iniciando proceso de subida...")
     try:
         secrets_env = os.environ.get("CLIENT_SECRETS_JSON")
-        if not secrets_env: return
+        if not secrets_env:
+            return
 
         secrets_data = json.loads(secrets_env, strict=False)
         datos_credenciales = secrets_data.get("installed") or secrets_data.get("web") or {}
@@ -179,7 +220,7 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
         creds = Credentials(
             token=None,
             refresh_token=os.environ.get("YOUTUBE_REFRESH_TOKEN"),
-            token_uri="https://googleapis.com",
+            token_uri="https://oauth2.googleapis.com/token",  # ✅ CORREGIDO
             client_id=datos_credenciales.get("client_id"),
             client_secret=datos_credenciales.get("client_secret")
         )
@@ -201,12 +242,13 @@ def subir_a_youtube(archivo_video, titulo, descripcion):
 
         media = MediaFileUpload(archivo_video, chunksize=-1, resumable=True)
         request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-        
+
         print(f"[YOUTUBE API] Subiendo capitulo de la serie...")
         response = request.execute()
         print(f"[SISTEMA] ¡Video de René subido! ID: {response.get('id')}")
     except Exception as e:
         print(f"[ERROR YOUTUBE API]: {e}")
+
 
 async def main():
     os.makedirs("clips_temporales", exist_ok=True)
@@ -224,24 +266,25 @@ async def main():
         num = escena["escena"]
         print(f"\n--- TRABAJANDO EN ESCENA {num}/10 ---")
         audio_temp = os.path.join("clips_temporales", f"voz_{num}.mp3")
-        
+
         await generar_voz_escena(escena["narracion"], audio_temp)
         video_temp = descargar_video_escena(escena["video_prompt"], num, escena["narracion"])
-        
+
         if video_temp and os.path.exists(audio_temp):
             ruta_bloque = armar_bloque_escena(audio_temp, video_temp, escena["narracion"], num)
             bloques_renderizados.append(VideoFileClip(ruta_bloque))
 
     if bloques_renderizados:
         print("\n>>> [MOVIEPY] Uniendo capitulo final de René...")
-        pelicula_completa = concatenate_videoclips(bloques_renderizados)
+        pelicula_completa = concatenate_videoclips(bloques_renderizados, method="compose")
         pelicula_completa.write_videofile(archivo_pelicula_final, codec="libx264", audio_codec="aac", fps=24, logger=None)
-        
+
         pelicula_completa.close()
-        for b in bloques_renderizados: b.close()
+        for b in bloques_renderizados:
+            b.close()
 
         titulo = f"LA SERIE DE RENÉ ENRÍQUEZ 🧟‍♂️ (Capítulo Automático IA)"
-        descripcion = f"Historia continua sobre el apocalipsis zombie.\n\nGenerado con Inteligencia Artificial."
+        descripcion = f"Historia continua sobre el apocalipsis zombie en Buenos Aires.\n\nGenerado con Inteligencia Artificial."
         subir_a_youtube(archivo_pelicula_final, titulo, descripcion)
         print("[SISTEMA] Ciclo terminado con éxito.")
     else:
