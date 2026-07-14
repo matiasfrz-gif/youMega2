@@ -79,6 +79,13 @@ async def obtener_guion_zombis_ia():
     response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
     texto_json = response.text.strip().replace("```json", "").replace("```", "")
 
+    # 🛡️ Extraemos SOLO el bloque JSON válido (desde la primera { hasta la última }),
+    # por si Gemini agrega texto extra antes o después que rompería el parseo
+    inicio = texto_json.find("{")
+    fin = texto_json.rfind("}")
+    if inicio != -1 and fin != -1:
+        texto_json = texto_json[inicio:fin + 1]
+
     datos_guion = json.loads(texto_json)
 
     # Guardamos de forma automática el nuevo resumen para la próxima corrida
