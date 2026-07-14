@@ -62,7 +62,9 @@ async def obtener_guion_zombis_ia():
         f"Mantene el nombre del protagonista (Rene Enriquez) y el lugar (Buenos Aires) consistentes durante todo el capitulo. "
         f"En el capitulo anterior ocurrio exactamente esto: '{resumen_anterior}'. "
         f"Escribe el CAPITULO SIGUIENTE de la serie continuando la narrativa de forma fluida, tensa y atrapante. "
-        f"Divide este nuevo capitulo en exactamente 10 escenas consecutivas. "
+        f"Divide este nuevo capitulo en exactamente 20 escenas consecutivas. "
+        f"Cada narracion debe tener entre 45 y 60 palabras (ni mas corta ni mas larga), "
+        f"para que el capitulo completo dure aproximadamente 10 minutos de video. "
         f"Devuelve el resultado UNICAMENTE en formato JSON limpio, sin bloques de codigo markdown (no uses ```json), "
         f"con la siguiente estructura exacta:\n"
         f"{{\n"
@@ -109,14 +111,30 @@ def descargar_video_escena(prompt_video, num_escena, texto_narracion):
     # 🚨 EL DOMADOR DE PEXELS DE LA SERIE: Filtramos palabras de acción real
     texto_min = texto_narracion.lower()
 
-    if "corriendo" in texto_min or "corre" in texto_min or "escapa" in texto_min or "huye" in texto_min:
+    if "corriendo" in texto_min or "corre" in texto_min or "escapa" in texto_min or "huye" in texto_min or "corrio" in texto_min:
         palabras_clave = "person running away camera"
+    elif "escalera" in texto_min or "subio" in texto_min or "bajo" in texto_min or "peldan" in texto_min:
+        palabras_clave = "dark staircase abandoned building"
     elif "oscur" in texto_min or "noche" in texto_min or "sombra" in texto_min:
         palabras_clave = "dark abandoned corridor"
-    elif "zombie" in texto_min or "monstruo" in texto_min or "horda" in texto_min or "infectado" in texto_min:
+    elif "zombie" in texto_min or "monstruo" in texto_min or "horda" in texto_min or "infectado" in texto_min or "criatura" in texto_min:
         palabras_clave = "scary monster cinematic"
     elif "cristal" in texto_min or "rompio" in texto_min or "ventana" in texto_min or "ruido" in texto_min:
         palabras_clave = "dark spooky laboratory"
+    elif "hospital" in texto_min or "medic" in texto_min or "enferm" in texto_min or "herid" in texto_min:
+        palabras_clave = "abandoned hospital corridor dark"
+    elif "auto" in texto_min or "coche" in texto_min or "camioneta" in texto_min or "carretera" in texto_min:
+        palabras_clave = "abandoned car empty road"
+    elif "puerta" in texto_min or "entrada" in texto_min or "cerrad" in texto_min:
+        palabras_clave = "old wooden door dark room"
+    elif "bosque" in texto_min or "arbol" in texto_min or "selva" in texto_min:
+        palabras_clave = "dark forest night fog"
+    elif "sangre" in texto_min or "herida" in texto_min or "ataque" in texto_min:
+        palabras_clave = "horror blood scene cinematic dark"
+    elif "calle" in texto_min or "ciudad" in texto_min or "edificio" in texto_min:
+        palabras_clave = "abandoned city street empty"
+    elif "radio" in texto_min or "mensaje" in texto_min or "senal" in texto_min:
+        palabras_clave = "old radio static dark room"
     else:
         # Limpieza si la escena de René es más descriptiva
         prompt_limpio = prompt_video.replace(",", " ").replace(".", " ")
