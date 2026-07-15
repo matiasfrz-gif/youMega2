@@ -62,9 +62,11 @@ async def obtener_guion_zombis_ia():
         f"Mantene el nombre del protagonista (Rene Enriquez) y el lugar (Buenos Aires) consistentes durante todo el capitulo. "
         f"En el capitulo anterior ocurrio exactamente esto: '{resumen_anterior}'. "
         f"Escribe el CAPITULO SIGUIENTE de la serie continuando la narrativa de forma fluida, tensa y atrapante. "
-        f"Divide este nuevo capitulo en exactamente 20 escenas consecutivas. "
-        f"Cada narracion debe tener entre 45 y 60 palabras (ni mas corta ni mas larga), "
-        f"para que el capitulo completo dure aproximadamente 10 minutos de video. "
+        f"Divide este nuevo capitulo en exactamente 25 escenas consecutivas. "
+        f"REGLA OBLIGATORIA E INQUEBRANTABLE: cada campo 'narracion' debe tener OBLIGATORIAMENTE un minimo de 50 palabras "
+        f"y un maximo de 70 palabras. Contá las palabras antes de responder. Una narracion de menos de 50 palabras "
+        f"es un ERROR GRAVE e inaceptable. Si una escena es simple, agregale mas detalle descriptivo y sensorial "
+        f"(sonidos, olores, pensamientos del personaje) para alcanzar el minimo de palabras exigido. "
         f"Devuelve el resultado UNICAMENTE en formato JSON limpio, sin bloques de codigo markdown (no uses ```json), "
         f"con la siguiente estructura exacta:\n"
         f"{{\n"
@@ -89,6 +91,13 @@ async def obtener_guion_zombis_ia():
         texto_json = texto_json[inicio:fin + 1]
 
     datos_guion = json.loads(texto_json)
+
+    # 🔍 Verificamos el largo real de cada narración (para diagnosticar si Gemini respeta la regla)
+    for escena in datos_guion["escenas"]:
+        cantidad_palabras = len(escena["narracion"].split())
+        print(f"[CHEQUEO] Escena {escena['escena']}: {cantidad_palabras} palabras")
+        if cantidad_palabras < 40:
+            print(f"[AVISO] Escena {escena['escena']} quedó corta ({cantidad_palabras} palabras)")
 
     # Guardamos de forma automática el nuevo resumen para la próxima corrida
     try:
@@ -135,6 +144,12 @@ def descargar_video_escena(prompt_video, num_escena, texto_narracion):
         palabras_clave = "abandoned city street empty"
     elif "radio" in texto_min or "mensaje" in texto_min or "senal" in texto_min:
         palabras_clave = "old radio static dark room"
+    elif "botella" in texto_min or "agua" in texto_min or "bebida" in texto_min or "vaso" in texto_min:
+        palabras_clave = "hand holding water bottle indoors"
+    elif "escritorio" in texto_min or "mesa" in texto_min or "oficina" in texto_min:
+        palabras_clave = "abandoned office desk dark"
+    elif "camina" in texto_min or "camino" in texto_min or "camino" in texto_min:
+        palabras_clave = "man walking alone dark street"
     else:
         # Limpieza si la escena de René es más descriptiva
         prompt_limpio = prompt_video.replace(",", " ").replace(".", " ")
@@ -308,7 +323,7 @@ async def main():
         for b in bloques_renderizados:
             b.close()
 
-        titulo = f"LA SERIE DE RENÉ ENRÍQUEZ 🧟‍♂️ (Capítulo Automático IA)"
+        titulo = f"LA SERIE DE RENÉ ENRÍQUEZ 🧟‍♂️ (Capítulo Completo)"
         descripcion = f"Historia continua sobre el apocalipsis zombie en Buenos Aires.\n\nGenerado con Inteligencia Artificial."
         subir_a_youtube(archivo_pelicula_final, titulo, descripcion)
         print("[SISTEMA] Ciclo terminado con éxito.")
