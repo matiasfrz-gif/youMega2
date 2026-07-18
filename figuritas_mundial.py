@@ -231,7 +231,7 @@ def armar_short_figurita(jugador, ruta_video_fondo, archivo_audio, texto_narraci
      ).with_start(0).with_duration(duracion).with_position(('center', int(ALTO_ESTANDAR * 0.20))))
 
     # Subtítulo de la narración, abajo
-    tamano_fuente_sub = int(ALTO_ESTANDAR * 0.018)
+    tamano_fuente_sub = int(ALTO_ESTANDAR * 0.008)
     subtitulo = (TextClip(
         text=texto_narracion.upper(),
         font_size=tamano_fuente_sub,
