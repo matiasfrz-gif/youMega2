@@ -231,14 +231,14 @@ def armar_short_figurita(jugador, ruta_video_fondo, archivo_audio, texto_narraci
      ).with_start(0).with_duration(duracion).with_position(('center', int(ALTO_ESTANDAR * 0.20))))
 
     # Subtítulo de la narración, abajo
-    tamano_fuente_sub = int(ALTO_ESTANDAR * 0.012)
+    tamano_fuente_sub = int(ALTO_ESTANDAR * 0.018)
     subtitulo = (TextClip(
         text=texto_narracion.upper(),
         font_size=tamano_fuente_sub,
         color='white',
         stroke_color='black',
         stroke_width=2,
-        size=(int(ANCHO_ESTANDAR * 0.85), int(ALTO_ESTANDAR * 0.35)),
+        size=(int(ANCHO_ESTANDAR * 0.85), int(ALTO_ESTANDAR * 0.45)),
         method='caption',
         text_align='center'
      ).with_start(0).with_duration(duracion).with_position(('center', 'bottom')))
