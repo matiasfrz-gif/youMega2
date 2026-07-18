@@ -205,8 +205,8 @@ def armar_short_figurita(jugador, ruta_video_fondo, archivo_audio, texto_narraci
     )
 
     # 🎴 La "tarjeta de figurita": número grande + nombre, arriba de la pantalla
-    tamano_fuente_numero = int(ALTO_ESTANDAR * 0.09)
-    tamano_fuente_nombre = int(ALTO_ESTANDAR * 0.045)
+    tamano_fuente_numero = int(ALTO_ESTANDAR * 0.06)
+    tamano_fuente_nombre = int(ALTO_ESTANDAR * 0.035)
 
     texto_numero = (TextClip(
         text=f"N° {jugador['numero']}",
@@ -231,7 +231,7 @@ def armar_short_figurita(jugador, ruta_video_fondo, archivo_audio, texto_narraci
      ).with_start(0).with_duration(duracion).with_position(('center', int(ALTO_ESTANDAR * 0.20))))
 
     # Subtítulo de la narración, abajo
-    tamano_fuente_sub = int(ALTO_ESTANDAR * 0.035)
+    tamano_fuente_sub = int(ALTO_ESTANDAR * 0.028)
     subtitulo = (TextClip(
         text=texto_narracion.upper(),
         font_size=tamano_fuente_sub,
